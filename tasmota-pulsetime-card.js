@@ -491,7 +491,7 @@ class TasmotaPulseTimeCardEditor extends HTMLElement {
     return [
       {
         name: "entity",
-        selector: { entity: { domain: "switch" } },
+        selector: { entity: { domain: "" } },
       },
       {
         name: "entityName",
