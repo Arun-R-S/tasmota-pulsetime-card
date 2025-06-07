@@ -2,14 +2,17 @@ class TasmotaPulseTimeCard extends HTMLElement {
   _config;
   _hass;
   _elements = {};
+  _mqttTimer = null;
+  _lastState = null;
 
-  __defaultValues={
-      entity: "",
-      header: "",
-      switchNo: 1,
-      turnOffAfter: 10,
-      mqttTopic: "tasmotaindoortest01",
-      title:"",
+  __defaultValues = {
+    entity: "",
+    header: "",
+    switchNo: 1,
+    turnOffAfter: 10,
+    mqttTopic: "tasmotaindoortest01",
+    mqttStatusTopic: "", // NEW!
+    title: "",
   };
 
   constructor() {
@@ -25,6 +28,10 @@ class TasmotaPulseTimeCard extends HTMLElement {
   set hass(hass) {
     this._hass = hass;
     this._updateHass();
+  }
+
+  disconnectedCallback() {
+    clearInterval(this._mqttTimer);
   }
 
   _render() {
@@ -65,8 +72,10 @@ class TasmotaPulseTimeCard extends HTMLElement {
 
   _buildCard() {
     const title = this._config.title || this.__defaultValues.title;
-    const header = this._config.header || this.__defaultValues.header;
-    const name = this._hass?.states?.[this._config.entity]?.attributes?.friendly_name || this._config.entityName || this._config.entity;
+    const name =
+      this._hass?.states?.[this._config.entity]?.attributes?.friendly_name ||
+      this._config.entity;
+
     const turnOffAfterSeconds = this._config.turnOffAfter || 10;
     const timeValue = this._secondsToHHMMSS(turnOffAfterSeconds);
 
@@ -76,7 +85,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
         <div class="card-title">${title}</div>
         <p class="error-message hidden"></p>
         <div class="switch-row">
-          <ha-state-icon class="state-icon"></ha-state-icon>
+          <state-badge class="state-icon"></state-badge>
           <span class="state-label">${name}</span>
           <ha-switch class="toggle-switch"></ha-switch>
         </div>
@@ -89,12 +98,15 @@ class TasmotaPulseTimeCard extends HTMLElement {
             step="1"
             max="18:12:15"
             value="${timeValue}"
-            pattern="^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
           >
+        </div>
+        <div class="mqtt-data-row">
+          <div id="mqtt-status-text">No data</div>
         </div>
         <div class="button-row">
           <mwc-button class="run-button" raised label="Run"></mwc-button>
         </div>
+        
       </div>
     `;
   }
@@ -105,71 +117,27 @@ class TasmotaPulseTimeCard extends HTMLElement {
       this.shadowRoot.appendChild(this._elements.style);
     }
     this._elements.style.textContent = `
-      .card-container {
-        padding: 16px;
-        font-family: sans-serif;
-      }
-      .card-header {
-        font-weight: bold;
-        font-size: 20px;
-        margin-bottom: 12px;
-      }
-      .card-title {
-        font-weight: bold;
-        font-size: 15px;
-        margin-bottom: 15px;
-      }
-      .error-message {
-        color: var(--error-color);
-        font-weight: bold;
-        margin-bottom: 10px;
-      }
-      .hidden {
-        display: none;
-      }
+      .card-container { padding: 16px; font-family: sans-serif; }
+      .card-title { font-weight: bold; font-size: 15px; margin-bottom: 15px; }
+      .error-message { color: var(--error-color); font-weight: bold; margin-bottom: 10px; }
+      .hidden { display: none; }
       .switch-row {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 16px;
-        padding: 8px;
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 16px; padding: 8px;
         border: 1px solid var(--divider-color);
         border-radius: 8px;
         background: var(--card-background-color);
       }
-      .state-icon {
-        --mdc-icon-size: 32px;
-        color: var(--state-icon-color);
-      }
-      .state-label {
-        font-size: 16px;
-        font-weight: 500;
-        flex-grow: 1;
-        padding-left: 10px;
-      }
-      .toggle-switch {
-        margin-left: auto;
-      }
-      .input-row {
-        margin-bottom: 16px;
-      }
-      label {
-        display: block;
-        font-weight: 600;
-        margin-bottom: 4px;
-      }
-      input.run-time-input {
-        width: 100%;
-        padding: 8px;
-        font-size: 14px;
-        box-sizing: border-box;
-      }
-      .button-row {
-        text-align: right;
-      }
-        input[type="time"]::-webkit-datetime-edit-ampm-field {
-    display: none;
-  }
+      .state-icon { --mdc-icon-size: 32px; color: var(--state-icon-color); }
+      .state-label { font-size: 16px; font-weight: 500; flex-grow: 1; padding-left: 10px; }
+      .toggle-switch { margin-left: auto; }
+      .input-row { margin-bottom: 16px; }
+      label { display: block; font-weight: 600; margin-bottom: 4px; }
+      input.run-time-input { width: 100%; padding: 8px; font-size: 14px; box-sizing: border-box; }
+      .button-row { text-align: right; }
+      .mqtt-data-row { margin-top: 12px; padding: 6px; font-size: 14px; background: #f5f5f5; border-radius: 5px; }
+      #mqtt-status-text { font-family: monospace; }
+      input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
     `;
   }
 
@@ -185,6 +153,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
     this._elements.runButton = card.querySelector(".run-button");
     this._elements.toggleSwitch = card.querySelector(".toggle-switch");
     this._elements.stateIcon = card.querySelector(".state-icon");
+    this._elements.mqttStatusText = card.querySelector("#mqtt-status-text");
   }
 
   _addListeners() {
@@ -208,12 +177,38 @@ class TasmotaPulseTimeCard extends HTMLElement {
     }
 
     this._elements.errorMessage.classList.add("hidden");
-    this._elements.stateIcon.stateObj = stateObj;
+    if (this._elements.stateIcon && this._hass) {
+      this._elements.stateIcon.hass = this._hass;
+      this._elements.stateIcon.stateObj = this._hass.states[this._config.entity];
+    }
     this._elements.toggleSwitch.checked = stateObj.state === "on";
+
+    if (this._lastState !== stateObj.state) {
+      this._lastState = stateObj.state;
+      clearInterval(this._mqttTimer);
+      if (stateObj.state === "on" && this._config.mqttStatusTopic) {
+        this._startMqttPolling(this._config.mqttStatusTopic);
+      }
+    }
 
     if (!this._elements.runTimeInput.value) {
       this._elements.runTimeInput.value = this._secondsToHHMMSS(this._config.turnOffAfter || this.__defaultValues.turnOffAfter);
     }
+  }
+
+  _startMqttPolling(topic) {
+    const fetchMqtt = async () => {
+      try {
+        const payload = await this._hass.callService("mqtt", "subscribe", {
+          topic: topic,
+        });
+        this._elements.mqttStatusText.textContent = JSON.stringify(payload);
+      } catch (err) {
+        this._elements.mqttStatusText.textContent = "Failed to fetch MQTT topic.";
+      }
+    };
+    fetchMqtt();
+    this._mqttTimer = setInterval(fetchMqtt, 5000);
   }
 
   _getTurnOffAfter() {
@@ -284,98 +279,11 @@ class TasmotaPulseTimeCard extends HTMLElement {
       header: "",
       switchNo: 1,
       turnOffAfter: 10,
-      mqttTopic: "tasmota_test01",
-      entityName:"", 
-      title:"",
+      mqttTopic: "tasmotaindooertest01",
+      mqttStatusTopic: "", // New config
+      title: "",
     };
   }
 }
 
 customElements.define("tasmota-pulsetime-card", TasmotaPulseTimeCard);
-
-class TasmotaPulseTimeCardEditor extends HTMLElement {
-  _config;
-  _formEl;
-
-  constructor() {
-    super();
-    this.attachShadow({ mode: "open" });
-  }
-
-  connectedCallback() {
-    if (!this._formEl) {
-      this._formEl = document.createElement("ha-form");
-      this.shadowRoot.appendChild(this._formEl);
-    }
-    if (this._config) {
-      this._formEl.data = this._config;
-    }
-
-    this._formEl.addEventListener("value-changed", (ev) => {
-      ev.stopPropagation();
-      this._config = ev.detail.value;
-      this.dispatchEvent(
-        new CustomEvent("config-changed", {
-          detail: { config: this._config },
-          bubbles: true,
-          composed: true,
-        })
-      );
-    });
-  }
-
-  setConfig(config) {
-    this._config = config;
-    if (this._formEl) {
-      this._formEl.data = config;
-    }
-  }
-
-  static getConfigSchema() {
-    return [
-      {
-        name: "entity",
-        selector: { entity: { domain: "switch" } },
-      },
-      {
-        name: "header",
-        selector: { text: {} },
-      },
-      {
-        name: "switchNo",
-        selector: {
-          number: {
-            min: 1,
-            max: 4,
-            mode: "box",
-          },
-        },
-      },
-      {
-        name: "turnOffAfter",
-        selector: {
-          number: {
-            min: 1,
-            max: 999,
-            mode: "box",
-          },
-        },
-      },
-      {
-        name: "mqttTopic",
-        selector: {
-          text: {},
-        },
-      },
-    ];
-  }
-}
-
-customElements.define("tasmota-pulsetime-card-editor", TasmotaPulseTimeCardEditor);
-
-window.customCards = window.customCards || [];
-window.customCards.push({
-  type: "tasmota-pulsetime-card",
-  name: "Tasmota PulseTime Card",
-  description: "Created by Arun R S for test",
-});
