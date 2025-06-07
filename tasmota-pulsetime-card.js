@@ -258,11 +258,11 @@ const hiddenStates = ["off", "unavailable", "unknown"];
         this._elements.progressContainer.style.visibility = "hidden";
       }, 1500);
     }
-    else if (percent == 0) {
+    /*else if (percent == 0) {
       setTimeout(() => {
         this._elements.progressContainer.style.visibility = "hidden";
       }, 1500);
-    }
+    }*/
   }
   _updateConfig() {
     this._elements.card.setAttribute("header", this._config.header || this.__defaultValues.header);
