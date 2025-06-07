@@ -3,6 +3,15 @@ class TasmotaPulseTimeCard extends HTMLElement {
   _hass;
   _elements = {};
 
+  __defaultValues={
+      entity: "",
+      header: "",
+      switchNo: 1,
+      turnOffAfter: 10,
+      mqttTopic: "tasmotaindoortest01",
+      title:"",
+  };
+
   constructor() {
     super();
     this.attachShadow({ mode: "open" });
@@ -55,15 +64,16 @@ class TasmotaPulseTimeCard extends HTMLElement {
   }
 
   _buildCard() {
-    const header = this._config.header || "Tasmota PulseTime";
-    const name = this._hass?.states?.[this._config.entity]?.attributes?.friendly_name || this._config.entity;
+    const title = this._config.title || this.__defaultValues.title;
+    const header = this._config.header || this.__defaultValues.header;
+    const name = this._hass?.states?.[this._config.entity]?.attributes?.friendly_name || this._config.entityName || this._config.entity;
     const turnOffAfterSeconds = this._config.turnOffAfter || 10;
     const timeValue = this._secondsToHHMMSS(turnOffAfterSeconds);
 
     this._elements.card = document.createElement("ha-card");
     this._elements.card.innerHTML = `
       <div class="card-container">
-        <div class="card-header">${header}</div>
+        <div class="card-title">${title}</div>
         <p class="error-message hidden"></p>
         <div class="switch-row">
           <ha-state-icon class="state-icon"></ha-state-icon>
@@ -71,13 +81,15 @@ class TasmotaPulseTimeCard extends HTMLElement {
           <ha-switch class="toggle-switch"></ha-switch>
         </div>
         <div class="input-row">
-          <label for="run-time-input">Run Time (HH:MM:SS):</label>
+          <label for="run-time-input">Run Time (HH:MM:SS, max 18:12:15):</label>
           <input 
             type="time" 
             id="run-time-input" 
             class="run-time-input" 
             step="1"
+            max="18:12:15"
             value="${timeValue}"
+            pattern="^([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9]$"
           >
         </div>
         <div class="button-row">
@@ -101,6 +113,11 @@ class TasmotaPulseTimeCard extends HTMLElement {
         font-weight: bold;
         font-size: 20px;
         margin-bottom: 12px;
+      }
+      .card-title {
+        font-weight: bold;
+        font-size: 15px;
+        margin-bottom: 15px;
       }
       .error-message {
         color: var(--error-color);
@@ -150,18 +167,13 @@ class TasmotaPulseTimeCard extends HTMLElement {
       .button-row {
         text-align: right;
       }
-      mwc-button.run-button {
-        background-color: var(--primary-color);
-        color: white;
-        font-weight: 600;
-        border-radius: 8px;
-        padding: 10px;
-      }
+        input[type="time"]::-webkit-datetime-edit-ampm-field {
+    display: none;
+  }
     `;
   }
 
   _attachElements() {
-    // Clear and attach style + card
     this.shadowRoot.innerHTML = "";
     this.shadowRoot.append(this._elements.style, this._elements.card);
   }
@@ -182,7 +194,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
   }
 
   _updateConfig() {
-    this._elements.card.setAttribute("header", this._config.header || "Tasmota PulseTime");
+    this._elements.card.setAttribute("header", this._config.header || this.__defaultValues.header);
   }
 
   _updateHass() {
@@ -194,20 +206,22 @@ class TasmotaPulseTimeCard extends HTMLElement {
       this._elements.errorMessage.classList.remove("hidden");
       return;
     }
+
     this._elements.errorMessage.classList.add("hidden");
     this._elements.stateIcon.stateObj = stateObj;
     this._elements.toggleSwitch.checked = stateObj.state === "on";
 
     if (!this._elements.runTimeInput.value) {
-      this._elements.runTimeInput.value = this._secondsToHHMMSS(this._config.turnOffAfter || 10);
+      this._elements.runTimeInput.value = this._secondsToHHMMSS(this._config.turnOffAfter || this.__defaultValues.turnOffAfter);
     }
   }
 
   _getTurnOffAfter() {
-    // Convert HH:MM:SS to seconds
     const input = this._elements.runTimeInput?.value;
     if (!input) return this._config.turnOffAfter || 10;
-    return this._HHMMSSToSeconds(input);
+    const seconds = this._HHMMSSToSeconds(input);
+    const maxSeconds = 18 * 3600 + 12 * 60 + 15;
+    return seconds > maxSeconds ? maxSeconds : seconds;
   }
 
   _getSwitchNo() {
@@ -235,6 +249,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
       this._elements.errorMessage.classList.remove("hidden");
       return;
     }
+
     this._elements.errorMessage.classList.add("hidden");
 
     this._hass.callService("script", "tasmota_dynamic_pulse", {
@@ -247,7 +262,14 @@ class TasmotaPulseTimeCard extends HTMLElement {
   _onRunTimeChanged() {
     const input = this._elements.runTimeInput.value;
     const seconds = this._HHMMSSToSeconds(input);
-    if (seconds > 0) {
+    const maxSeconds = 18 * 3600 + 12 * 60 + 15;
+    if (seconds > maxSeconds) {
+      this._elements.errorMessage.textContent = "Max allowed time is 18:12:15 auto correcting";
+      this._elements.errorMessage.classList.remove("hidden");
+      this._elements.runTimeInput.value = this._secondsToHHMMSS(maxSeconds);
+      this._config.turnOffAfter = maxSeconds;
+    } else {
+      this._elements.errorMessage.classList.add("hidden");
       this._config.turnOffAfter = seconds;
     }
   }
@@ -259,17 +281,17 @@ class TasmotaPulseTimeCard extends HTMLElement {
   static getStubConfig() {
     return {
       entity: "",
-      header: "Tasmota PulseTime",
+      header: "",
       switchNo: 1,
       turnOffAfter: 10,
-      mqttTopic: "tasmota_test01"
+      mqttTopic: "tasmota_test01",
+      entityName:"", 
+      title:"",
     };
   }
 }
 
 customElements.define("tasmota-pulsetime-card", TasmotaPulseTimeCard);
-
-// The editor class remains the same as you had (no change needed for time input)
 
 class TasmotaPulseTimeCardEditor extends HTMLElement {
   _config;
@@ -351,7 +373,6 @@ class TasmotaPulseTimeCardEditor extends HTMLElement {
 
 customElements.define("tasmota-pulsetime-card-editor", TasmotaPulseTimeCardEditor);
 
-// Register the card so Home Assistant knows about it
 window.customCards = window.customCards || [];
 window.customCards.push({
   type: "tasmota-pulsetime-card",
