@@ -1,0 +1,7 @@
+{
+  "name": "Tasmota PulseTime Card",
+  "description": "Custom card to set PulseTime and trigger relay via MQTT",
+  "filename": "tasmota-pulsetime-card.js",
+  "type": "module",
+  "render_readme": true
+}
