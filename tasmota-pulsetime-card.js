@@ -7,6 +7,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
 
   __defaultValues = {
     entity: "",
+    entityName: "",
     header: "",
     switchNo: 1,
     turnOffAfter: 10,
@@ -75,7 +76,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
   _buildCard() {
     const title = this._config.title || this.__defaultValues.title;
     const name =
-      this._hass?.states?.[this._config.entity]?.attributes?.friendly_name ||
+      this._hass?.states?.[this._config.entity]?.attributes?.friendly_name || this._config.entityName ||
       this._config.entity;
 
     const turnOffAfterSeconds = this._config.turnOffAfter || 10;
@@ -91,21 +92,26 @@ class TasmotaPulseTimeCard extends HTMLElement {
           <span class="state-label">${name}</span>
           <ha-switch class="toggle-switch"></ha-switch>
         </div>
-        <div class="input-row">
-          <label for="run-time-input">Run Time (HH:MM:SS, max 18:12:15):</label>
-          <input 
-            type="time" 
-            id="run-time-input" 
-            class="run-time-input" 
-            step="1"
-            max="18:12:15"
-            value="${timeValue}"
-          >
-        </div>
-        <div class="mqtt-data-row">
-          <div id="mqtt-status-text">No data</div>
-        </div>
-        <div class="progress-container hidden">
+        <div class="row-container">
+  <div class="input-row good-box">
+    <label for="run-time-input" class="run-time-label">Run Time</label>
+    <input 
+      type="time" 
+      id="run-time-input" 
+      class="run-time-input" 
+      step="1"
+      max="18:12:15"
+      value="${timeValue}"
+    >
+  </div>
+  
+  <div class="mqtt-data-row">
+  <label for="turnOffLabel">Turn off in</label>
+    <div id="mqtt-status-text">--:--:--</div>
+  </div>
+</div>
+        
+        <div class="progress-container" style="visibility:hidden;">
           <div class="progress-bar" style="width: 0%">0%</div>
         </div>
         <div class="button-row">
@@ -121,13 +127,25 @@ class TasmotaPulseTimeCard extends HTMLElement {
       this.shadowRoot.appendChild(this._elements.style);
     }
     this._elements.style.textContent = `
-      .card-container { padding: 16px; font-family: sans-serif; }
-      .card-title { font-weight: bold; font-size: 15px; margin-bottom: 15px; }
+      .row-container {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px; /* Optional spacing between the two divs */
+  }
+    .good-box{
+    border: 1px solid var(--divider-color);
+    border-radius: 8px;
+    background: var(--card-background-color);
+    padding: 5px;
+    }
+      .card-container { padding: 14px;font-family: Noto, Noto Sans, sans-serif ; }
+      .card-title { font-weight: bold; font-size: 15px; margin-bottom: 5px; }
       .error-message { color: var(--error-color); font-weight: bold; margin-bottom: 10px; }
       .hidden { display: none; }
       .switch-row {
         display: flex; align-items: center; justify-content: space-between;
-        margin-bottom: 16px; padding: 8px;
+        margin-bottom: 12px; padding: 8px;
         border: 1px solid var(--divider-color);
         border-radius: 8px;
         background: var(--card-background-color);
@@ -135,20 +153,23 @@ class TasmotaPulseTimeCard extends HTMLElement {
       .state-icon { --mdc-icon-size: 32px; color: var(--state-icon-color); }
       .state-label { font-size: 16px; font-weight: 500; flex-grow: 1; padding-left: 10px; }
       .toggle-switch { margin-left: auto; }
-      .input-row { margin-bottom: 16px; }
-      label { display: block; font-weight: 600; margin-bottom: 4px; }
-      input.run-time-input { width: 100%; padding: 8px; font-size: 14px; box-sizing: border-box; }
+      .input-row { display: flex;
+        flex-direction: column;
+        margin-bottom: 5px; }
+      label { display: block; font-weight:500;}
+      .run-time-label { text-align:center; }
+      input.run-time-input { width: 100%; padding: 8px; font-size: 14px; border-radius:8px; font-family: Noto, Noto Sans, sans-serif ; box-sizing: border-box; border-color: transparent;}
       .button-row { text-align: right; }
-      .mqtt-data-row { margin-top: 12px; padding: 6px; font-size: 14px; background: #f5f5f5; border-radius: 5px; }
-      #mqtt-status-text { font-family: monospace; }
+      .mqtt-data-row { margin-top: 2px; padding: 6px; min-width:100px; font-size: 14px; border-radius: 5px; }
+      #mqtt-status-text { margin:11px }
       input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
       .progress-container {
   width: 100%;
   background-color: var(--divider-color);
   border-radius: 12px;
   overflow: hidden;
-  height: 24px;
-  margin-top: 16px;
+  height: 14px;
+  margin-bottom: 2px;
 }
 
 .progress-bar {
@@ -162,7 +183,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
   );
   animation: moveStripes 1s linear infinite;
   text-align: center;
-  line-height: 24px;
+  line-height: 15px;
   color: white;
   font-weight: bold;
   transition: width 0.5s ease-in-out;
@@ -200,13 +221,13 @@ this._elements.progressContainer = card.querySelector(".progress-container");
   _setProgress(percent) {
     if (!this._elements.progressBar || !this._elements.progressContainer) return;
 
-    this._elements.progressContainer.classList.remove("hidden");
+    this._elements.progressContainer.style.visibility = "visible";
     this._elements.progressBar.style.width = `${percent}%`;
     this._elements.progressBar.textContent = `${percent}%`;
 
     if (percent >= 100) {
       setTimeout(() => {
-        this._elements.progressContainer.classList.add("hidden");
+        this._elements.progressContainer.style.visibility = "hidden";
       }, 1500);
     }
   }
@@ -280,7 +301,7 @@ this._elements.progressContainer = card.querySelector(".progress-container");
         var actualPulseTime = this._getFormattedPulseTime(data?.data[`PulseTime${switchNo}`]?.Set);
         var remainingPulseTime = this._getFormattedPulseTime(data?.data[`PulseTime${switchNo}`]?.Remaining);
         
-        this._elements.mqttStatusText.textContent = `Remaining Time: ${this._secondsToHHMMSS(remainingPulseTime)}`;
+        this._elements.mqttStatusText.textContent = `${this._secondsToHHMMSS(remainingPulseTime)}`;
         var yetToProgressPulseTime = (actualPulseTime-remainingPulseTime)/actualPulseTime;
         var remainingPercent = Math.floor(yetToProgressPulseTime * 100);
         this._setProgress(remainingPercent);
@@ -368,7 +389,8 @@ this._elements.progressContainer = card.querySelector(".progress-container");
 
   static getStubConfig() {
     return {
-      entity: "",
+      type: "custom:tasmota-pulsetime-card",
+      entity: "sun.sun",
       header: "",
       switchNo: 1,
       turnOffAfter: 10,
@@ -382,6 +404,99 @@ this._elements.progressContainer = card.querySelector(".progress-container");
 }
 
 customElements.define("tasmota-pulsetime-card", TasmotaPulseTimeCard);
+
+class TasmotaPulseTimeCardEditor extends HTMLElement {
+  _config;
+  _formEl;
+  _hass;
+
+  constructor() {
+    super();
+    this.attachShadow({ mode: "open" });
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    if (this._formEl) {
+      this._formEl.hass = hass;
+    }
+  }
+
+  connectedCallback() {
+    if (!this._formEl) {
+      this._formEl = document.createElement("ha-form");
+      this._formEl.schema = TasmotaPulseTimeCardEditor.getConfigSchema();
+      this._formEl.hass = this._hass;
+      this._formEl.data = this._config || {};
+      this.shadowRoot.appendChild(this._formEl);
+    }
+
+    this._formEl.addEventListener("value-changed", (ev) => {
+      ev.stopPropagation();
+      this._config = ev.detail.value;
+      this.dispatchEvent(
+        new CustomEvent("config-changed", {
+          detail: { config: this._config },
+          bubbles: true,
+          composed: true,
+        })
+      );
+    });
+  }
+
+  setConfig(config) {
+    this._config = config;
+    if (this._formEl) {
+      this._formEl.data = config;
+    }
+  }
+
+  static getConfigSchema() {
+    return [
+      {
+        name: "entity",
+        selector: { entity: { domain: "switch" } },
+      },
+      {
+        name: "entityName",
+        selector: { text: {} },
+      },
+      {
+        name: "header",
+        selector: { text: {} },
+      },
+      {
+        name: "switchNo",
+        selector: {
+          number: {
+            min: 1,
+            max: 100,
+            mode: "box",
+          },
+        },
+      },
+      {
+        name: "turnOffAfter",
+        selector: {
+          number: {
+            min: 1,
+            max: 65565,
+            mode: "box",
+          },
+        },
+      },
+      {
+        name: "mqttTopic",
+        selector: {
+          text: {},
+        },
+      },
+    ];
+  }
+}
+
+customElements.define("tasmota-pulsetime-card-editor", TasmotaPulseTimeCardEditor);
+
 
 // Register the card so Home Assistant knows about it
 window.customCards = window.customCards || [];
