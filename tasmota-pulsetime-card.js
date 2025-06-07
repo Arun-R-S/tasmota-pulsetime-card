@@ -40,10 +40,25 @@ class TasmotaPulseTimeCard extends HTMLElement {
     }
   }
 
+  _secondsToHHMMSS(seconds) {
+    const h = Math.floor(seconds / 3600).toString().padStart(2, "0");
+    const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
+    const s = (seconds % 60).toString().padStart(2, "0");
+    return `${h}:${m}:${s}`;
+  }
+
+  _HHMMSSToSeconds(hhmmss) {
+    const parts = hhmmss.split(":");
+    if (parts.length !== 3) return 0;
+    const [h, m, s] = parts.map(Number);
+    return h * 3600 + m * 60 + s;
+  }
+
   _buildCard() {
     const header = this._config.header || "Tasmota PulseTime";
     const name = this._hass?.states?.[this._config.entity]?.attributes?.friendly_name || this._config.entity;
-    const value = this._config.turnOffAfter || 10;
+    const turnOffAfterSeconds = this._config.turnOffAfter || 10;
+    const timeValue = this._secondsToHHMMSS(turnOffAfterSeconds);
 
     this._elements.card = document.createElement("ha-card");
     this._elements.card.innerHTML = `
@@ -56,14 +71,13 @@ class TasmotaPulseTimeCard extends HTMLElement {
           <ha-switch class="toggle-switch"></ha-switch>
         </div>
         <div class="input-row">
-          <label for="run-time-input">Run Time (seconds):</label>
+          <label for="run-time-input">Run Time (HH:MM:SS):</label>
           <input 
-            type="number" 
+            type="time" 
             id="run-time-input" 
             class="run-time-input" 
-            min="1" 
-            placeholder="10"
-            value="${value}"
+            step="1"
+            value="${timeValue}"
           >
         </div>
         <div class="button-row">
@@ -185,13 +199,15 @@ class TasmotaPulseTimeCard extends HTMLElement {
     this._elements.toggleSwitch.checked = stateObj.state === "on";
 
     if (!this._elements.runTimeInput.value) {
-      this._elements.runTimeInput.value = this._config.turnOffAfter || 10;
+      this._elements.runTimeInput.value = this._secondsToHHMMSS(this._config.turnOffAfter || 10);
     }
   }
 
   _getTurnOffAfter() {
+    // Convert HH:MM:SS to seconds
     const input = this._elements.runTimeInput?.value;
-    return input ? parseInt(input) : this._config.turnOffAfter || 10;
+    if (!input) return this._config.turnOffAfter || 10;
+    return this._HHMMSSToSeconds(input);
   }
 
   _getSwitchNo() {
@@ -229,9 +245,10 @@ class TasmotaPulseTimeCard extends HTMLElement {
   }
 
   _onRunTimeChanged() {
-    const newVal = parseInt(this._elements.runTimeInput.value);
-    if (!isNaN(newVal) && newVal > 0) {
-      this._config.turnOffAfter = newVal;
+    const input = this._elements.runTimeInput.value;
+    const seconds = this._HHMMSSToSeconds(input);
+    if (seconds > 0) {
+      this._config.turnOffAfter = seconds;
     }
   }
 
@@ -251,6 +268,8 @@ class TasmotaPulseTimeCard extends HTMLElement {
 }
 
 customElements.define("tasmota-pulsetime-card", TasmotaPulseTimeCard);
+
+// The editor class remains the same as you had (no change needed for time input)
 
 class TasmotaPulseTimeCardEditor extends HTMLElement {
   _config;
