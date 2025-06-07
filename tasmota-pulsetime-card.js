@@ -16,6 +16,9 @@ class TasmotaPulseTimeCard extends HTMLElement {
     title: "",
     pollIntervalSeconds: 5,  // Added default poll interval
     nextPollCheck:null,
+    iconOnColor: "green",
+    iconOffColor: "red",
+    iconDefaultColor: "",
   };
 
   constructor() {
@@ -72,7 +75,21 @@ class TasmotaPulseTimeCard extends HTMLElement {
     const [h, m, s] = parts.map(Number);
     return h * 3600 + m * 60 + s;
   }
-
+  _getIconColor(entityID){
+    console.log("Entity ID from config:", this._config.entity);
+    const stateObj = this._hass?.states?.[this._config.entity];
+    const entityState = stateObj?.state;
+    console.log(stateObj);
+    if(entityState =="on")
+    {
+      return this._config.iconOnColor;
+    }
+    else if(entityState == "off")
+    {
+      return this._config.iconOffColor;
+    }
+    return this._config.iconDefaultColor;
+  }
   _buildCard() {
     const title = this._config.title || this.__defaultValues.title;
     const name =
@@ -81,14 +98,14 @@ class TasmotaPulseTimeCard extends HTMLElement {
 
     const turnOffAfterSeconds = this._config.turnOffAfter || 10;
     const timeValue = this._secondsToHHMMSS(turnOffAfterSeconds);
-
+    const thisIconColor = this._getIconColor(this._config.entity);
     this._elements.card = document.createElement("ha-card");
     this._elements.card.innerHTML = `
       <div class="card-container">
         <div class="card-title">${title}</div>
         <p class="error-message hidden"></p>
         <div class="switch-row">
-          <state-badge class="state-icon"></state-badge>
+          <state-badge class="state-icon" color="${thisIconColor}"></state-badge>
           <span class="state-label">${name}</span>
           <ha-switch class="toggle-switch"></ha-switch>
         </div>
@@ -112,7 +129,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
 </div>
         
         <div class="progress-container" style="visibility:hidden;">
-          <div class="progress-bar" style="width: 0%">0%</div>
+          <div class="progress-bar" id="progress-bar-percent" style="width: 0%">0%</div>
         </div>
         <div class="button-row">
           <mwc-button class="run-button" raised label="Run"></mwc-button>
@@ -209,14 +226,25 @@ class TasmotaPulseTimeCard extends HTMLElement {
     this._elements.toggleSwitch = card.querySelector(".toggle-switch");
     this._elements.stateIcon = card.querySelector(".state-icon");
     this._elements.mqttStatusText = card.querySelector("#mqtt-status-text");
+    this._elements.progressBarPercent = card.querySelector("#progress-bar-percent");
     this._elements.progressBar = card.querySelector(".progress-bar");
 this._elements.progressContainer = card.querySelector(".progress-container");
   }
 
   _addListeners() {
     this._elements.runButton.addEventListener("click", () => this._onRunClicked());
+    this._elements.progressBarPercent.addEventListener("click", () => this._onProgressBarCheck());
     this._elements.runTimeInput.addEventListener("change", () => this._onRunTimeChanged());
     this._elements.toggleSwitch.addEventListener("change", () => this._onToggleChanged());
+  }
+  _onProgressBarCheck(){
+    const entityId = this._config.entity;
+  const state = this._hass.states[entityId]?.state;
+const hiddenStates = ["off", "unavailable", "unknown"];
+  //console.log(`[DEBUG] Entity "${entityId}" state =`, state);
+  if (!state || hiddenStates.includes(state)) {
+    this._elements.progressContainer.style.visibility = "hidden";
+  }
   }
   _setProgress(percent) {
     if (!this._elements.progressBar || !this._elements.progressContainer) return;
@@ -226,6 +254,11 @@ this._elements.progressContainer = card.querySelector(".progress-container");
     this._elements.progressBar.textContent = `${percent}%`;
 
     if (percent >= 100) {
+      setTimeout(() => {
+        this._elements.progressContainer.style.visibility = "hidden";
+      }, 1500);
+    }
+    else if (percent == 0) {
       setTimeout(() => {
         this._elements.progressContainer.style.visibility = "hidden";
       }, 1500);
@@ -399,6 +432,9 @@ this._elements.progressContainer = card.querySelector(".progress-container");
       title: "",
       pollIntervalSeconds: 5,
       ip: "192.168.0.53", // Add IP here or in config
+      iconOnColor: "",
+      iconOffColor: "",
+      iconDefaultColor: "",
     };
   }
 }
@@ -466,6 +502,10 @@ class TasmotaPulseTimeCardEditor extends HTMLElement {
         selector: { text: {} },
       },
       {
+        name: "title",
+        selector: { text: {} },
+      },
+      {
         name: "switchNo",
         selector: {
           number: {
@@ -487,6 +527,36 @@ class TasmotaPulseTimeCardEditor extends HTMLElement {
       },
       {
         name: "mqttTopic",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        name: "pollIntervalSeconds",
+        selector: {
+          number: {},
+        },
+      },
+      {
+        name: "ip",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        name: "iconOnColor",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        name: "iconOffColor",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        name: "iconDefaultColor",
         selector: {
           text: {},
         },
