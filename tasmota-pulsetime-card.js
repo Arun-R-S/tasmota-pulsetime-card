@@ -103,7 +103,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
   _setIconColor() {
     const entityIonColor = this._getIconColor();
     this._elements.myEntityIcon.color = entityIonColor;
-    console.log(entityIonColor);
+    //console.log(entityIonColor);
   }
   _buildCard() {
     const title = this._config.title || this.__defaultValues.title;
@@ -480,6 +480,23 @@ const hiddenStates = ["off", "unavailable", "unknown"];
   }
 
   _onRunClicked() {
+    const stateObj = this._hass.states[this._config.entity];
+    const entityState = stateObj.state;
+    console.log("Entity state:", entityState);
+
+    if(entityState =="unavailable")
+    {
+      console.log("Toast will trigger");
+      this.dispatchEvent(
+        new CustomEvent("hass-notification", {
+          detail: {
+            message: `Entity ${this._config.entity} is unavailable to perform the action.`,
+          },
+          bubbles: true,
+          composed: true,
+        })
+      );
+    }
     const timer = this._getTurnOffAfter();
     const switchNo = this._getSwitchNo();
     const topic = this._getMqttTopic();
