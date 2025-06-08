@@ -75,11 +75,21 @@ class TasmotaPulseTimeCard extends HTMLElement {
     const [h, m, s] = parts.map(Number);
     return h * 3600 + m * 60 + s;
   }
-  _getIconColor(entityID){
-    console.log("Entity ID from config:", this._config.entity);
-    const stateObj = this._hass?.states?.[this._config.entity];
-    const entityState = stateObj?.state;
-    console.log(stateObj);
+  _getIconColor() {
+    if (!this._hass || !this._config || !this._config.entity) {
+      console.warn("Missing _hass or _config");
+      return "";
+    }
+
+    const stateObj = this._hass.states[this._config.entity];
+    if (!stateObj) {
+      console.warn("Entity not found:", this._config.entity);
+      return "";
+    }
+
+    const entityState = stateObj.state;
+    console.log("Entity state:", entityState);
+
     if(entityState =="on")
     {
       return this._config.iconOnColor;
@@ -90,6 +100,11 @@ class TasmotaPulseTimeCard extends HTMLElement {
     }
     return this._config.iconDefaultColor;
   }
+  _setIconColor() {
+    const entityIonColor = this._getIconColor();
+    this._elements.myEntityIcon.color = entityIonColor;
+    console.log(entityIonColor);
+  }
   _buildCard() {
     const title = this._config.title || this.__defaultValues.title;
     const name =
@@ -98,32 +113,36 @@ class TasmotaPulseTimeCard extends HTMLElement {
 
     const turnOffAfterSeconds = this._config.turnOffAfter || 10;
     const timeValue = this._secondsToHHMMSS(turnOffAfterSeconds);
-    const thisIconColor = this._getIconColor(this._config.entity);
     this._elements.card = document.createElement("ha-card");
     this._elements.card.innerHTML = `
       <div class="card-container">
         <div class="card-title">${title}</div>
         <p class="error-message hidden"></p>
         <div class="switch-row">
-          <state-badge class="state-icon" color="${thisIconColor}"></state-badge>
+          <state-badge class="state-icon" id="myEntityIcon" color=""></state-badge>
           <span class="state-label">${name}</span>
           <ha-switch class="toggle-switch"></ha-switch>
         </div>
         <div class="row-container">
   <div class="input-row good-box">
     <label for="run-time-input" class="run-time-label">Run Time</label>
-    <input 
-      type="time" 
-      id="run-time-input" 
-      class="run-time-input" 
-      step="1"
-      max="18:12:15"
-      value="${timeValue}"
-    >
+    <div class="dropdown-time-inputs">
+  <select id="dropdown-hour" class="dropdown">
+    ${[...Array(19).keys()].map(i => `<option value="${i}">${i.toString().padStart(2, '0')}</option>`).join("")}
+  </select>
+  <span>:</span>
+  <select id="dropdown-minute" class="dropdown">
+    ${[...Array(60).keys()].map(i => `<option value="${i}">${i.toString().padStart(2, '0')}</option>`).join("")}
+  </select>
+  <span>:</span>
+  <select id="dropdown-second" class="dropdown">
+    ${[...Array(60).keys()].map(i => `<option value="${i}">${i.toString().padStart(2, '0')}</option>`).join("")}
+  </select>
+</div>
   </div>
   
   <div class="mqtt-data-row">
-  <label for="turnOffLabel">Turn off in</label>
+  <label for="turnOffLabel" style="text-align: center;">Turn off in</label>
     <div id="mqtt-status-text">--:--:--</div>
   </div>
 </div>
@@ -144,12 +163,33 @@ class TasmotaPulseTimeCard extends HTMLElement {
       this.shadowRoot.appendChild(this._elements.style);
     }
     this._elements.style.textContent = `
+    .dropdown-time-inputs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-bottom: 10px;
+}
+
+.dropdown {
+  padding: 4px;
+  font-size: 14px;
+  border-radius: 6px;
+  border: 1px solid var(--divider-color);
+}
       .row-container {
     display: flex;
+    flex-wrap: wrap; /* 👈 enables wrapping */
     align-items: center;
     justify-content: space-between;
-    gap: 16px; /* Optional spacing between the two divs */
+    gap: 0px; /* Optional spacing between the two divs */
   }
+    /* When container is too narrow, center items */
+@media (max-width: 400px) {
+  .row-container {
+    justify-content: center;
+  }
+}
     .good-box{
     border: 1px solid var(--divider-color);
     border-radius: 8px;
@@ -163,7 +203,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
       .switch-row {
         display: flex; align-items: center; justify-content: space-between;
         margin-bottom: 12px; padding: 8px;
-        border: 1px solid var(--divider-color);
+        // border: 1px solid var(--divider-color);
         border-radius: 8px;
         background: var(--card-background-color);
       }
@@ -173,16 +213,17 @@ class TasmotaPulseTimeCard extends HTMLElement {
       .input-row { display: flex;
         flex-direction: column;
         margin-bottom: 5px; }
-      label { display: block; font-weight:500;}
+      label { display: block; font-weight:600;}
       .run-time-label { text-align:center; }
       input.run-time-input { width: 100%; padding: 8px; font-size: 14px; border-radius:8px; font-family: Noto, Noto Sans, sans-serif ; box-sizing: border-box; border-color: transparent;}
       .button-row { text-align: right; }
       .mqtt-data-row { margin-top: 2px; padding: 6px; min-width:100px; font-size: 14px; border-radius: 5px; }
-      #mqtt-status-text { margin:11px }
+      #mqtt-status-text { margin:11px; margin-top: 1px;text-align: center;
+    margin-bottom: 1px; }
       input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
       .progress-container {
   width: 100%;
-  background-color: var(--divider-color);
+  background-color: var(--divider-color, #e0e0e0);
   border-radius: 12px;
   overflow: hidden;
   height: 14px;
@@ -191,24 +232,35 @@ class TasmotaPulseTimeCard extends HTMLElement {
 
 .progress-bar {
   height: 100%;
-  background: repeating-linear-gradient(
+  background-image: linear-gradient(
     45deg,
-    #4caf50,
-    #4caf50 10px,
-    #43a047 10px,
-    #43a047 20px
+    rgba(255, 255, 255, 0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
+    transparent 75%,
+    transparent
   );
-  animation: moveStripes 1s linear infinite;
+  background-color: #4caf50;
+  background-size: 40px 40px;
+  animation: moveStripes 0.5s linear infinite;
   text-align: center;
   line-height: 15px;
   color: white;
   font-weight: bold;
-  transition: width 0.5s ease-in-out;
+  transition: width 0.6s ease-in-out;
+  will-change: width, background-position;
+  border-radius: 12px;
 }
-
+  
 @keyframes moveStripes {
-  0% { background-position: 0 0; }
-  100% { background-position: 40px 0; }
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 0;
+  }
 }
     `;
   }
@@ -228,14 +280,22 @@ class TasmotaPulseTimeCard extends HTMLElement {
     this._elements.mqttStatusText = card.querySelector("#mqtt-status-text");
     this._elements.progressBarPercent = card.querySelector("#progress-bar-percent");
     this._elements.progressBar = card.querySelector(".progress-bar");
-this._elements.progressContainer = card.querySelector(".progress-container");
+    this._elements.progressContainer = card.querySelector(".progress-container");
+    this._elements.dropdownHour = card.querySelector("#dropdown-hour");
+    this._elements.dropdownMinute = card.querySelector("#dropdown-minute");
+    this._elements.dropdownSecond = card.querySelector("#dropdown-second");
+    this._elements.myEntityIcon = card.querySelector("#myEntityIcon");
   }
 
   _addListeners() {
     this._elements.runButton.addEventListener("click", () => this._onRunClicked());
     this._elements.progressBarPercent.addEventListener("click", () => this._onProgressBarCheck());
-    this._elements.runTimeInput.addEventListener("change", () => this._onRunTimeChanged());
-    this._elements.toggleSwitch.addEventListener("change", () => this._onToggleChanged());
+    //this._elements.runTimeInput.addEventListener("change", () => this._onRunTimeChanged());
+    this._elements.toggleSwitch.addEventListener("click", () => this._onToggleChanged());
+    this._elements.toggleSwitch.addEventListener("change", () => this._setIconColor());
+    ["dropdownHour", "dropdownMinute", "dropdownSecond"].forEach(id => {
+      this._elements[id].addEventListener("change", () => this._onRunTimeChanged());
+    });
   }
   _onProgressBarCheck(){
     const entityId = this._config.entity;
@@ -251,7 +311,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
 
     this._elements.progressContainer.style.visibility = "visible";
     this._elements.progressBar.style.width = `${percent}%`;
-    this._elements.progressBar.textContent = `${percent}%`;
+    this._elements.progressBar.textContent = `${Math.floor(percent)}%`;
 
     if (percent >= 100) {
       setTimeout(() => {
@@ -270,7 +330,8 @@ const hiddenStates = ["off", "unavailable", "unknown"];
 
   async _updateHass() {
     if (!this._elements.errorMessage) return;
-
+    
+    
     const stateObj = this._hass?.states?.[this._config.entity];
     if (!stateObj) {
       this._elements.errorMessage.textContent = `${this._config.entity} is unavailable.`;
@@ -285,7 +346,13 @@ const hiddenStates = ["off", "unavailable", "unknown"];
       this._elements.stateIcon.stateObj = stateObj;
     }
     this._elements.toggleSwitch.checked = stateObj.state === "on";
-
+    if (this._lastState !== stateObj.state) {
+      this._setIconColor();
+    }
+    if(stateObj.state === "off")
+    {
+      this._elements.progressContainer.style.visibility = "hidden";
+    }
     // Start or stop polling based on entity state
     if (this._lastState !== stateObj.state) {
       this._lastState = stateObj.state;
@@ -295,9 +362,13 @@ const hiddenStates = ["off", "unavailable", "unknown"];
       }
     }
 
-    if (!this._elements.runTimeInput.value) {
-      this._elements.runTimeInput.value = this._secondsToHHMMSS(this._config.turnOffAfter || this.__defaultValues.turnOffAfter);
-    }
+    // if (!this._elements.runTimeInput.value) {
+    //   this._elements.runTimeInput.value = this._secondsToHHMMSS(this._config.turnOffAfter || this.__defaultValues.turnOffAfter);
+    // }
+    const totalSec = this._config.turnOffAfter || this.__defaultValues.turnOffAfter;
+    this._elements.dropdownHour.value = Math.floor(totalSec / 3600).toString();
+    this._elements.dropdownMinute.value = Math.floor((totalSec % 3600) / 60).toString();
+    this._elements.dropdownSecond.value = (totalSec % 60).toString();
   }
 
   _startPolling() {
@@ -328,15 +399,20 @@ const hiddenStates = ["off", "unavailable", "unknown"];
         } 
 
       const data = await response.json();
-
+        
       // Assuming your API returns { Remaining: <seconds> } or similar
       if (data?.data[`PulseTime${switchNo}`]?.Remaining != null) {
-        var actualPulseTime = this._getFormattedPulseTime(data?.data[`PulseTime${switchNo}`]?.Set);
+        var SetData = data?.data[`PulseTime${switchNo}`]?.Set;
+        if(SetData==0)
+        {
+          this._elements.progressContainer.style.visibility = "hidden";
+        }
+        var actualPulseTime = this._getFormattedPulseTime(SetData);
         var remainingPulseTime = this._getFormattedPulseTime(data?.data[`PulseTime${switchNo}`]?.Remaining);
         
         this._elements.mqttStatusText.textContent = `${this._secondsToHHMMSS(remainingPulseTime)}`;
         var yetToProgressPulseTime = (actualPulseTime-remainingPulseTime)/actualPulseTime;
-        var remainingPercent = Math.floor(yetToProgressPulseTime * 100);
+        var remainingPercent = yetToProgressPulseTime * 100;
         this._setProgress(remainingPercent);
       } else {
         this._elements.mqttStatusText.textContent = "No Remaining time data";
@@ -359,9 +435,15 @@ const hiddenStates = ["off", "unavailable", "unknown"];
     return time;
   }
   _getTurnOffAfter() {
-    const input = this._elements.runTimeInput?.value;
-    if (!input) return this._config.turnOffAfter || 10;
-    const seconds = this._HHMMSSToSeconds(input);
+    // const input = this._elements.runTimeInput?.value;
+    // if (!input) return this._config.turnOffAfter || 10;
+    // const seconds = this._HHMMSSToSeconds(input);
+    // const maxSeconds = 18 * 3600 + 12 * 60 + 15;
+    // return seconds > maxSeconds ? maxSeconds : seconds;
+    const h = parseInt(this._elements.dropdownHour?.value || "0", 10);
+    const m = parseInt(this._elements.dropdownMinute?.value || "0", 10);
+    const s = parseInt(this._elements.dropdownSecond?.value || "0", 10);
+    let seconds = h * 3600 + m * 60 + s;
     const maxSeconds = 18 * 3600 + 12 * 60 + 15;
     return seconds > maxSeconds ? maxSeconds : seconds;
   }
@@ -375,8 +457,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
   }
 
   _onToggleChanged() {
-    const newState = this._elements.toggleSwitch.checked;
-    this._hass.callService("switch", newState ? "turn_on" : "turn_off", {
+    this._hass.callService("homeassistant", "toggle", {
       entity_id: this._config.entity,
     });
   }
@@ -402,13 +483,27 @@ const hiddenStates = ["off", "unavailable", "unknown"];
   }
 
   _onRunTimeChanged() {
-    const input = this._elements.runTimeInput.value;
-    const seconds = this._HHMMSSToSeconds(input);
+    // const input = this._elements.runTimeInput.value;
+    // const seconds = this._HHMMSSToSeconds(input);
+    // const maxSeconds = 18 * 3600 + 12 * 60 + 15;
+    // if (seconds > maxSeconds) {
+    //   this._elements.errorMessage.textContent = "Max allowed time is 18:12:15 auto correcting";
+    //   this._elements.errorMessage.classList.remove("hidden");
+    //   this._elements.runTimeInput.value = this._secondsToHHMMSS(maxSeconds);
+    //   this._config.turnOffAfter = maxSeconds;
+    // } else {
+    //   this._elements.errorMessage.classList.add("hidden");
+    //   this._config.turnOffAfter = seconds;
+    // }
+    const seconds = this._getTurnOffAfter();
     const maxSeconds = 18 * 3600 + 12 * 60 + 15;
     if (seconds > maxSeconds) {
       this._elements.errorMessage.textContent = "Max allowed time is 18:12:15 auto correcting";
       this._elements.errorMessage.classList.remove("hidden");
-      this._elements.runTimeInput.value = this._secondsToHHMMSS(maxSeconds);
+      const maxH = 18, maxM = 12, maxS = 15;
+      this._elements.dropdownHour.value = maxH.toString();
+      this._elements.dropdownMinute.value = maxM.toString();
+      this._elements.dropdownSecond.value = maxS.toString();
       this._config.turnOffAfter = maxSeconds;
     } else {
       this._elements.errorMessage.classList.add("hidden");
@@ -469,6 +564,17 @@ class TasmotaPulseTimeCardEditor extends HTMLElement {
 
     this._formEl.addEventListener("value-changed", (ev) => {
       ev.stopPropagation();
+      const newConfig = ev.detail.value;
+
+      // Validate turnOffAfter
+      if (newConfig.turnOffAfter > 65536) {
+        // Option 1: Show error and don't update the config
+        alert("Value for 'Turn Off After' must be less than or equal to 65536.\n\nAuto defaulting the value to 65536 ........");
+        ev.detail.value.turnOffAfter = 65536;
+
+        // Option 2: Or auto-correct the value
+        // newConfig.turnOffAfter = 65536;
+      }
       this._config = ev.detail.value;
       this.dispatchEvent(
         new CustomEvent("config-changed", {
@@ -520,7 +626,7 @@ class TasmotaPulseTimeCardEditor extends HTMLElement {
         selector: {
           number: {
             min: 1,
-            max: 65565,
+            max: 65536,
             mode: "box",
           },
         },
@@ -534,7 +640,11 @@ class TasmotaPulseTimeCardEditor extends HTMLElement {
       {
         name: "pollIntervalSeconds",
         selector: {
-          number: {},
+          number: {
+            min: 1,
+            max: 65536,
+            mode: "box",
+          },
         },
       },
       {
