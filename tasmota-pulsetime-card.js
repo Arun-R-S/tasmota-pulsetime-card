@@ -123,7 +123,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
   </div>
   
   <div class="mqtt-data-row">
-  <label for="turnOffLabel">Turn off in</label>
+  <label for="turnOffLabel" style="text-align: center;">Turn off in</label>
     <div id="mqtt-status-text">--:--:--</div>
   </div>
 </div>
@@ -146,10 +146,17 @@ class TasmotaPulseTimeCard extends HTMLElement {
     this._elements.style.textContent = `
       .row-container {
     display: flex;
+    flex-wrap: wrap; /* 👈 enables wrapping */
     align-items: center;
     justify-content: space-between;
-    gap: 16px; /* Optional spacing between the two divs */
+    gap: 0px; /* Optional spacing between the two divs */
   }
+    /* When container is too narrow, center items */
+@media (max-width: 400px) {
+  .row-container {
+    justify-content: center;
+  }
+}
     .good-box{
     border: 1px solid var(--divider-color);
     border-radius: 8px;
@@ -173,16 +180,17 @@ class TasmotaPulseTimeCard extends HTMLElement {
       .input-row { display: flex;
         flex-direction: column;
         margin-bottom: 5px; }
-      label { display: block; font-weight:500;}
+      label { display: block; font-weight:600;}
       .run-time-label { text-align:center; }
       input.run-time-input { width: 100%; padding: 8px; font-size: 14px; border-radius:8px; font-family: Noto, Noto Sans, sans-serif ; box-sizing: border-box; border-color: transparent;}
       .button-row { text-align: right; }
       .mqtt-data-row { margin-top: 2px; padding: 6px; min-width:100px; font-size: 14px; border-radius: 5px; }
-      #mqtt-status-text { margin:11px }
+      #mqtt-status-text { margin:11px; margin-top: 1px;
+    margin-bottom: 1px; }
       input[type="time"]::-webkit-datetime-edit-ampm-field { display: none; }
       .progress-container {
   width: 100%;
-  background-color: var(--divider-color);
+  background-color: var(--divider-color, #e0e0e0);
   border-radius: 12px;
   overflow: hidden;
   height: 14px;
@@ -191,24 +199,35 @@ class TasmotaPulseTimeCard extends HTMLElement {
 
 .progress-bar {
   height: 100%;
-  background: repeating-linear-gradient(
+  background-image: linear-gradient(
     45deg,
-    #4caf50,
-    #4caf50 10px,
-    #43a047 10px,
-    #43a047 20px
+    rgba(255, 255, 255, 0.2) 25%,
+    transparent 25%,
+    transparent 50%,
+    rgba(255, 255, 255, 0.2) 50%,
+    rgba(255, 255, 255, 0.2) 75%,
+    transparent 75%,
+    transparent
   );
+  background-color: #4caf50;
+  background-size: 40px 40px;
   animation: moveStripes 1s linear infinite;
   text-align: center;
   line-height: 15px;
   color: white;
   font-weight: bold;
-  transition: width 0.5s ease-in-out;
+  transition: width 0.3s ease-in-out;
+  will-change: width, background-position;
+  border-radius: 12px;
 }
-
+  
 @keyframes moveStripes {
-  0% { background-position: 0 0; }
-  100% { background-position: 40px 0; }
+  0% {
+    background-position: 0 0;
+  }
+  100% {
+    background-position: 40px 0;
+  }
 }
     `;
   }
