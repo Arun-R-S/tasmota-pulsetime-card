@@ -386,10 +386,19 @@ const hiddenStates = ["off", "unavailable", "unknown"];
     try {
       const ip = this._config.ip || ""; // add ip config or get from mqttTopic if you want
       const switchNo = this._config.switchNo || 1;
-
+      const user = this._config.tasmotaUser || "" ;
+      const password = this._config.tasmotaPassword || "" ;
       // Construct your API URL here
       // Example: adjust this URL to match your real endpoint
-      const url = `/customapi/tasmota?ip=${encodeURIComponent(ip)}&pulsetime=${encodeURIComponent(switchNo)}`;
+      var url = "" ;
+      if(user!="" && password!="")
+      {
+        url = `/mycustomapi/tasmota?ip=${encodeURIComponent(ip)}&pulsetime=${encodeURIComponent(switchNo)}&user=${encodeURIComponent(user)}&password=${encodeURIComponent(password)}`;
+      }
+      else
+      {
+        url = `/mycustomapi/tasmota?ip=${encodeURIComponent(ip)}&pulsetime=${encodeURIComponent(switchNo)}`;
+      }
 
       const response = await fetch(url);
       if (!response.ok)
@@ -399,9 +408,14 @@ const hiddenStates = ["off", "unavailable", "unknown"];
         } 
 
       const data = await response.json();
-        
+      if (data?.data["WARNING"] != null) {
+        this._elements.mqttStatusText.textContent = data?.data["WARNING"];
+      }
+      else if (data?.data["ERROR"] != null) {
+        this._elements.mqttStatusText.textContent = data?.data["ERROR"];
+      }
       // Assuming your API returns { Remaining: <seconds> } or similar
-      if (data?.data[`PulseTime${switchNo}`]?.Remaining != null) {
+      else if (data?.data[`PulseTime${switchNo}`]?.Remaining != null) {
         var SetData = data?.data[`PulseTime${switchNo}`]?.Set;
         if(SetData==0)
         {
@@ -414,8 +428,11 @@ const hiddenStates = ["off", "unavailable", "unknown"];
         var yetToProgressPulseTime = (actualPulseTime-remainingPulseTime)/actualPulseTime;
         var remainingPercent = yetToProgressPulseTime * 100;
         this._setProgress(remainingPercent);
-      } else {
-        this._elements.mqttStatusText.textContent = "No Remaining time data";
+      } else if (data?.data[`PulseTime${switchNo}`]?.Remaining == 0){
+        this._elements.mqttStatusText.textContent = "No Remaining time";
+      }
+      else {
+        this._elements.mqttStatusText.textContent = "No Data";
       }
     } catch (err) {
       this._elements.mqttStatusText.textContent = `Error: ${err.message}`;
@@ -530,6 +547,8 @@ const hiddenStates = ["off", "unavailable", "unknown"];
       iconOnColor: "",
       iconOffColor: "",
       iconDefaultColor: "",
+      tasmotaUser: "",
+      tasmotaPassword: ""
     };
   }
 }
@@ -667,6 +686,18 @@ class TasmotaPulseTimeCardEditor extends HTMLElement {
       },
       {
         name: "iconDefaultColor",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        name: "tasmotaUser",
+        selector: {
+          text: {},
+        },
+      },
+      {
+        name: "tasmotaPassword",
         selector: {
           text: {},
         },
