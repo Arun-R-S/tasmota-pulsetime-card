@@ -276,7 +276,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
     this._elements.runButton.addEventListener("click", () => this._onRunClicked());
     this._elements.progressBarPercent.addEventListener("click", () => this._onProgressBarCheck());
     //this._elements.runTimeInput.addEventListener("change", () => this._onRunTimeChanged());
-    this._elements.toggleSwitch.addEventListener("change", () => this._onToggleChanged());
+    this._elements.toggleSwitch.addEventListener("click", () => this._onToggleChanged());
     ["dropdownHour", "dropdownMinute", "dropdownSecond"].forEach(id => {
       this._elements[id].addEventListener("change", () => this._onRunTimeChanged());
     });
@@ -429,8 +429,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
   }
 
   _onToggleChanged() {
-    const newState = this._elements.toggleSwitch.checked;
-    this._hass.callService("switch", newState ? "turn_on" : "turn_off", {
+    this._hass.callService("homeassistant", "toggle", {
       entity_id: this._config.entity,
     });
   }
