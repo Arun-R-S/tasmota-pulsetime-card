@@ -15,7 +15,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
     mqttStatusTopic: "", // NEW!
     title: "",
     pollIntervalSeconds: 5,  // Added default poll interval
-    nextPollCheck:null,
+    nextPollCheck: null,
     iconOnColor: "green",
     iconOffColor: "red",
     iconDefaultColor: "",
@@ -90,12 +90,10 @@ class TasmotaPulseTimeCard extends HTMLElement {
     const entityState = stateObj.state;
     console.log("Entity state:", entityState);
 
-    if(entityState =="on")
-    {
+    if (entityState == "on") {
       return this._config.iconOnColor;
     }
-    else if(entityState == "off")
-    {
+    else if (entityState == "off") {
       return this._config.iconOffColor;
     }
     return this._config.iconDefaultColor;
@@ -297,14 +295,14 @@ class TasmotaPulseTimeCard extends HTMLElement {
       this._elements[id].addEventListener("change", () => this._onRunTimeChanged());
     });
   }
-  _onProgressBarCheck(){
+  _onProgressBarCheck() {
     const entityId = this._config.entity;
-  const state = this._hass.states[entityId]?.state;
-const hiddenStates = ["off", "unavailable", "unknown"];
-  //console.log(`[DEBUG] Entity "${entityId}" state =`, state);
-  if (!state || hiddenStates.includes(state)) {
-    this._elements.progressContainer.style.visibility = "hidden";
-  }
+    const state = this._hass.states[entityId]?.state;
+    const hiddenStates = ["off", "unavailable", "unknown"];
+    //console.log(`[DEBUG] Entity "${entityId}" state =`, state);
+    if (!state || hiddenStates.includes(state)) {
+      this._elements.progressContainer.style.visibility = "hidden";
+    }
   }
   _setProgress(percent) {
     if (!this._elements.progressBar || !this._elements.progressContainer) return;
@@ -330,8 +328,8 @@ const hiddenStates = ["off", "unavailable", "unknown"];
 
   async _updateHass() {
     if (!this._elements.errorMessage) return;
-    
-    
+
+
     const stateObj = this._hass?.states?.[this._config.entity];
     if (!stateObj) {
       this._elements.errorMessage.textContent = `${this._config.entity} is unavailable.`;
@@ -349,8 +347,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
     if (this._lastState !== stateObj.state) {
       this._setIconColor();
     }
-    if(stateObj.state === "off")
-    {
+    if (stateObj.state === "off") {
       this._elements.progressContainer.style.visibility = "hidden";
     }
     // Start or stop polling based on entity state
@@ -386,26 +383,23 @@ const hiddenStates = ["off", "unavailable", "unknown"];
     try {
       const ip = this._config.ip || ""; // add ip config or get from mqttTopic if you want
       const switchNo = this._config.switchNo || 1;
-      const user = this._config.tasmotaUser || "" ;
-      const password = this._config.tasmotaPassword || "" ;
+      const user = this._config.tasmotaUser || "";
+      const password = this._config.tasmotaPassword || "";
       // Construct your API URL here
       // Example: adjust this URL to match your real endpoint
-      var url = "" ;
-      if(user!="" && password!="")
-      {
+      var url = "";
+      if (user != "" && password != "") {
         url = `/mycustomapi/tasmota?ip=${encodeURIComponent(ip)}&pulsetime=${encodeURIComponent(switchNo)}&user=${encodeURIComponent(user)}&password=${encodeURIComponent(password)}`;
       }
-      else
-      {
+      else {
         url = `/mycustomapi/tasmota?ip=${encodeURIComponent(ip)}&pulsetime=${encodeURIComponent(switchNo)}`;
       }
 
       const response = await fetch(url);
-      if (!response.ok)
-        {
-          console.log(await response.json());
-          throw new Error(`API error: ${response.status}`);
-        } 
+      if (!response.ok) {
+        console.log(await response.json());
+        throw new Error(`API error: ${response.status}`);
+      }
 
       const data = await response.json();
       if (data?.data["WARNING"] != null) {
@@ -417,18 +411,17 @@ const hiddenStates = ["off", "unavailable", "unknown"];
       // Assuming your API returns { Remaining: <seconds> } or similar
       else if (data?.data[`PulseTime${switchNo}`]?.Remaining != null) {
         var SetData = data?.data[`PulseTime${switchNo}`]?.Set;
-        if(SetData==0)
-        {
+        if (SetData == 0) {
           this._elements.progressContainer.style.visibility = "hidden";
         }
         var actualPulseTime = this._getFormattedPulseTime(SetData);
         var remainingPulseTime = this._getFormattedPulseTime(data?.data[`PulseTime${switchNo}`]?.Remaining);
-        
+
         this._elements.mqttStatusText.textContent = `${this._secondsToHHMMSS(remainingPulseTime)}`;
-        var yetToProgressPulseTime = (actualPulseTime-remainingPulseTime)/actualPulseTime;
+        var yetToProgressPulseTime = (actualPulseTime - remainingPulseTime) / actualPulseTime;
         var remainingPercent = yetToProgressPulseTime * 100;
         this._setProgress(remainingPercent);
-      } else if (data?.data[`PulseTime${switchNo}`]?.Remaining == 0){
+      } else if (data?.data[`PulseTime${switchNo}`]?.Remaining == 0) {
         this._elements.mqttStatusText.textContent = "No Remaining time";
       }
       else {
@@ -438,8 +431,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
       this._elements.mqttStatusText.textContent = `Error: ${err.message}`;
     }
   }
-  _getFormattedPulseTime(time)
-  {
+  _getFormattedPulseTime(time) {
     if (time > 100 && time <= 110) {
       time = 10;
     }
@@ -484,8 +476,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
     const entityState = stateObj.state;
     console.log("Entity state:", entityState);
 
-    if(entityState =="unavailable")
-    {
+    if (entityState == "unavailable") {
       console.log("Toast will trigger");
       this.dispatchEvent(
         new CustomEvent("hass-notification", {
