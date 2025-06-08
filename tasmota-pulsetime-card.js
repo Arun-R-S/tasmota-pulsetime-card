@@ -75,11 +75,21 @@ class TasmotaPulseTimeCard extends HTMLElement {
     const [h, m, s] = parts.map(Number);
     return h * 3600 + m * 60 + s;
   }
-  _getIconColor(entityID){
-    console.log("Entity ID from config:", this._config.entity);
-    const stateObj = this._hass?.states?.[this._config.entity];
-    const entityState = stateObj?.state;
-    console.log(stateObj);
+  _getIconColor() {
+    if (!this._hass || !this._config || !this._config.entity) {
+      console.warn("Missing _hass or _config");
+      return this._config?.iconDefaultColor || "gray";
+    }
+
+    const stateObj = this._hass.states[this._config.entity];
+    if (!stateObj) {
+      console.warn("Entity not found:", this._config.entity);
+      return this._config.iconDefaultColor;
+    }
+
+    const entityState = stateObj.state;
+    console.log("Entity state:", entityState);
+
     if(entityState =="on")
     {
       return this._config.iconOnColor;
@@ -90,6 +100,11 @@ class TasmotaPulseTimeCard extends HTMLElement {
     }
     return this._config.iconDefaultColor;
   }
+  _setIconColor() {
+    const entityIonColor = this._getIconColor();
+    this._elements.myEntityIcon.color = entityIonColor;
+    console.log(entityIonColor);
+  }
   _buildCard() {
     const title = this._config.title || this.__defaultValues.title;
     const name =
@@ -98,14 +113,13 @@ class TasmotaPulseTimeCard extends HTMLElement {
 
     const turnOffAfterSeconds = this._config.turnOffAfter || 10;
     const timeValue = this._secondsToHHMMSS(turnOffAfterSeconds);
-    const thisIconColor = this._getIconColor(this._config.entity);
     this._elements.card = document.createElement("ha-card");
     this._elements.card.innerHTML = `
       <div class="card-container">
         <div class="card-title">${title}</div>
         <p class="error-message hidden"></p>
         <div class="switch-row">
-          <state-badge class="state-icon" color="${thisIconColor}"></state-badge>
+          <state-badge class="state-icon" id="myEntityIcon" color=""></state-badge>
           <span class="state-label">${name}</span>
           <ha-switch class="toggle-switch"></ha-switch>
         </div>
@@ -230,7 +244,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
   );
   background-color: #4caf50;
   background-size: 40px 40px;
-  animation: moveStripes 1s linear infinite;
+  animation: moveStripes 0.5s linear infinite;
   text-align: center;
   line-height: 15px;
   color: white;
@@ -270,6 +284,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
     this._elements.dropdownHour = card.querySelector("#dropdown-hour");
     this._elements.dropdownMinute = card.querySelector("#dropdown-minute");
     this._elements.dropdownSecond = card.querySelector("#dropdown-second");
+    this._elements.myEntityIcon = card.querySelector("#myEntityIcon");
   }
 
   _addListeners() {
@@ -277,6 +292,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
     this._elements.progressBarPercent.addEventListener("click", () => this._onProgressBarCheck());
     //this._elements.runTimeInput.addEventListener("change", () => this._onRunTimeChanged());
     this._elements.toggleSwitch.addEventListener("click", () => this._onToggleChanged());
+    this._elements.toggleSwitch.addEventListener("change", () => this._setIconColor());
     ["dropdownHour", "dropdownMinute", "dropdownSecond"].forEach(id => {
       this._elements[id].addEventListener("change", () => this._onRunTimeChanged());
     });
@@ -314,7 +330,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
 
   async _updateHass() {
     if (!this._elements.errorMessage) return;
-
+    this._setIconColor();
     const stateObj = this._hass?.states?.[this._config.entity];
     if (!stateObj) {
       this._elements.errorMessage.textContent = `${this._config.entity} is unavailable.`;
