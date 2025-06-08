@@ -249,7 +249,7 @@ class TasmotaPulseTimeCard extends HTMLElement {
   line-height: 15px;
   color: white;
   font-weight: bold;
-  transition: width 0.3s ease-in-out;
+  transition: width 0.6s ease-in-out;
   will-change: width, background-position;
   border-radius: 12px;
 }
@@ -348,6 +348,10 @@ const hiddenStates = ["off", "unavailable", "unknown"];
     this._elements.toggleSwitch.checked = stateObj.state === "on";
     if (this._lastState !== stateObj.state) {
       this._setIconColor();
+    }
+    if(stateObj.state === "off")
+    {
+      this._elements.progressContainer.style.visibility = "hidden";
     }
     // Start or stop polling based on entity state
     if (this._lastState !== stateObj.state) {
