@@ -1,3 +1,4 @@
+
 ## Installation
 
 ### HACS
@@ -15,6 +16,12 @@ _or_
 3. Search for "Mushroom"
 4. Click the download button. ⬇️
 
+## Dependancies
+1. To run this card seamlessly without issue you should include the below service and cusomt component to you home assistant
+    - **tasmota_dynamic_pulse:** Actually this is a script which can be able to publich the specific switch PulseTime and Turn on it. You can find the repository and instruction [here](https://github.com/Arun-R-S/home-assistant-scripts).
+     - **mycustomapi:** This is a custom component actually to get the current PulseTime Status of a switch from tasmota. You can find the repository and the instruction [here](https://github.com/Arun-R-S/mycustomapi).
+
+⚠️**Note: Without these two dependancies this card won't work properly**⚠️
 
 ### Manual
 
@@ -39,6 +46,8 @@ All the TasmotaPulseTime cards can be configured using Dashboard UI editor.
 3. Click Plus button to add a new card.
 4. Find one of the _Custom: tasmota-pulsetime-card in the list.
 
+## Demo
+![tasmota-pulsetime-card-demo.gif](https://raw.githubusercontent.com/arun-r-s/tasmota-pulsetime-card/sit/tasmota-pulsetime-card-demo.gif)
 
 ### Theme customization
 
