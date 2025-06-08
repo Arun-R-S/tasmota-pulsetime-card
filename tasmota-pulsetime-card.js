@@ -295,7 +295,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
 
     this._elements.progressContainer.style.visibility = "visible";
     this._elements.progressBar.style.width = `${percent}%`;
-    this._elements.progressBar.textContent = `${percent}%`;
+    this._elements.progressBar.textContent = `${Math.floor(percent)}%`;
 
     if (percent >= 100) {
       setTimeout(() => {
@@ -384,7 +384,7 @@ const hiddenStates = ["off", "unavailable", "unknown"];
         
         this._elements.mqttStatusText.textContent = `${this._secondsToHHMMSS(remainingPulseTime)}`;
         var yetToProgressPulseTime = (actualPulseTime-remainingPulseTime)/actualPulseTime;
-        var remainingPercent = Math.floor(yetToProgressPulseTime * 100);
+        var remainingPercent = yetToProgressPulseTime * 100;
         this._setProgress(remainingPercent);
       } else {
         this._elements.mqttStatusText.textContent = "No Remaining time data";
