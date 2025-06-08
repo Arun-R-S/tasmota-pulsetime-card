@@ -78,13 +78,13 @@ class TasmotaPulseTimeCard extends HTMLElement {
   _getIconColor() {
     if (!this._hass || !this._config || !this._config.entity) {
       console.warn("Missing _hass or _config");
-      return this._config?.iconDefaultColor || "gray";
+      return "";
     }
 
     const stateObj = this._hass.states[this._config.entity];
     if (!stateObj) {
       console.warn("Entity not found:", this._config.entity);
-      return this._config.iconDefaultColor;
+      return "";
     }
 
     const entityState = stateObj.state;
@@ -330,7 +330,8 @@ const hiddenStates = ["off", "unavailable", "unknown"];
 
   async _updateHass() {
     if (!this._elements.errorMessage) return;
-    this._setIconColor();
+    
+    
     const stateObj = this._hass?.states?.[this._config.entity];
     if (!stateObj) {
       this._elements.errorMessage.textContent = `${this._config.entity} is unavailable.`;
@@ -345,7 +346,9 @@ const hiddenStates = ["off", "unavailable", "unknown"];
       this._elements.stateIcon.stateObj = stateObj;
     }
     this._elements.toggleSwitch.checked = stateObj.state === "on";
-
+    if (this._lastState !== stateObj.state) {
+      this._setIconColor();
+    }
     // Start or stop polling based on entity state
     if (this._lastState !== stateObj.state) {
       this._lastState = stateObj.state;
@@ -392,10 +395,15 @@ const hiddenStates = ["off", "unavailable", "unknown"];
         } 
 
       const data = await response.json();
-
+        
       // Assuming your API returns { Remaining: <seconds> } or similar
       if (data?.data[`PulseTime${switchNo}`]?.Remaining != null) {
-        var actualPulseTime = this._getFormattedPulseTime(data?.data[`PulseTime${switchNo}`]?.Set);
+        var SetData = data?.data[`PulseTime${switchNo}`]?.Set;
+        if(SetData==0)
+        {
+          this._elements.progressContainer.style.visibility = "hidden";
+        }
+        var actualPulseTime = this._getFormattedPulseTime(SetData);
         var remainingPulseTime = this._getFormattedPulseTime(data?.data[`PulseTime${switchNo}`]?.Remaining);
         
         this._elements.mqttStatusText.textContent = `${this._secondsToHHMMSS(remainingPulseTime)}`;
